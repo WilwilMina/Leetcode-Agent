@@ -4,22 +4,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A LeetCode agent that mocks how a real technical interview goes (see [README.md](README.md)).
+**Interview Loop** — a web app that runs a ~25-30 minute mock technical interview. You speak, it
+types back, and it will not let you quit on a problem.
+
+Read [docs/PLAN.md](docs/PLAN.md) before doing anything substantive. It carries the design and,
+more importantly, the reasoning behind each decision.
+
+## The one thing to understand
+
+This is not a tool for practising interview *structure*. It targets a specific failure: going
+blank under pressure and saying "I don't know" — a **bail-out**. Being stuck is not a bail-out;
+announcing it and stopping is.
+
+**Bail-out count and recovery time are the product.** Every feature must make the user better
+under pressure or clearer in their spoken reasoning. If a proposed change doesn't, it doesn't
+belong in v1.
+
+## Decisions — do not re-litigate
+
+These were settled deliberately. Each is a place where the obvious-looking improvement is wrong;
+`docs/PLAN.md` §9 has the full reasoning.
+
+- **Nothing executes.** No sandbox, no Judge0/Piston, no in-browser Pyodide, no generated test
+  cases. Interviewers read code rather than running it; the model reads it holding the pre-solve
+  notes, and LeetCode's submit button is the ground truth after the session.
+- **The editor is deliberately bad.** No autocomplete, no linting, no error squiggles, no Monaco.
+  Those make you look competent in VS Code and helpless in an interview.
+- **Gates are soft.** The agent resists you skipping ahead; you can always override; the override
+  is logged and scored. Hard blocks remove the choice being trained and are trivially gamed.
+- **No praise mid-session.** The blankness is the pressure. A warm, helpful interviewer is the
+  single fastest way to destroy this product.
+- **No drawing canvas.** Pen and paper stays and the agent is blind to it — matching remote
+  interviews, where the interviewer cannot see your scratch paper.
+- **Voice is push-to-talk in, text out.** Turn-based, so no streaming STT. Browser Web Speech
+  recognition is unusable here: Chrome caps a session at ~60s and auto-stops on silence.
+- **Never store problem text.** Metadata and links only (copyright). Pasted problems stay in
+  session memory.
 
 ## Status: pre-implementation
 
-There is **no application code in this repository yet** — no package manifest, no build system,
-no test runner, no source directory. What exists is the agent scaffold (`.claude/`), a progress
-tracker (`docs/PROGRESS.md`), and the script that generated them (`setup-interview-loop (1).sh`).
+The stack is decided (below) but **no application code exists yet** — no package manifest, no test
+runner, no source directory. Next session starts at Phase 0 in `docs/PLAN.md` §8.
 
-Consequences for anyone working here:
+- **There are still no build, lint, or test commands.** Do not guess at one.
+- **When Phase 0 lands, record the real commands in this file** — install, dev server, full test
+  run, and single-test invocation.
 
-- There are **no build, lint, or test commands to run**. Do not guess at one; nothing is wired up.
-- The first slices of work will involve *choosing* a stack. That is a decision to make with the
-  user in Plan Mode, not to assume.
-- **When you do add a toolchain, record its commands in this file** — install, dev server, full
-  test run, and single-test invocation. That is the main thing a future session will need and
-  cannot discover from an empty repo.
+## Stack
+
+| Concern | Choice |
+|---|---|
+| Framework | Next.js (React + TypeScript), API routes as backend |
+| Tests | Vitest |
+| Interview brain | Claude API, server-side only |
+| Voice in | Push-to-talk, batch transcription |
+| Voice out | None in v1 (browser TTS is a later toggle) |
+| Storage | IndexedDB, mirrored to a local CSV via the File System Access API |
+| Target | Chrome only, by choice |
 
 ## Development workflow
 
@@ -32,10 +73,13 @@ for slices that look trivial. A slice is not done until `docs/PROGRESS.md` is up
 
 @.claude/rules/security.md
 
-The sandboxing rule is load-bearing for this project specifically: the whole point of the app is
-executing candidate-authored code, so the execution boundary is a design constraint from the first
-slice, not a hardening pass to bolt on later. Problem descriptions and model output are both
-untrusted inputs.
+**The sandboxing rule is moot in v1** — nothing executes, by design. It stays in the rules file
+because it becomes load-bearing the moment anyone reintroduces code execution, which is itself a
+decision listed above as settled.
+
+The rules that do bite: the Claude API key is server-side only, and both problem descriptions and
+model output are untrusted input. The pre-solve notes are model-generated and drive scoring, so
+validate their shape before use.
 
 ## Testing conventions
 
@@ -61,7 +105,7 @@ the session that wrote the code, so give it the change to review rather than you
 ## Progress tracking
 
 [docs/PROGRESS.md](docs/PROGRESS.md) is the handoff between sessions and carries the current phase
-(now: `REQUIREMENTS`). Read it at the start of a session and update it at the end of every slice —
+(now: `PHASE 0 — FOUNDATIONS`). Read it at the start of a session and update it at the end of every slice —
 shipped, decided, blocked, and where the next session should start.
 
 ## Skills
