@@ -40,6 +40,9 @@ These were settled deliberately. Each is a place where the obvious-looking impro
   recognition is unusable here: Chrome caps a session at ~60s and auto-stops on silence.
 - **Never store problem text.** Metadata and links only (copyright). Pasted problems stay in
   session memory.
+- **Use the `frontend-design` skill for any UI work.** Invoke it before writing components, not
+  after. The interface has to feel cold and high-pressure; a friendly default aesthetic works
+  against the product.
 
 ## Status: pre-implementation
 
