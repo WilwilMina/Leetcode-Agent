@@ -44,14 +44,43 @@ These were settled deliberately. Each is a place where the obvious-looking impro
   after. The interface has to feel cold and high-pressure; a friendly default aesthetic works
   against the product.
 
-## Status: pre-implementation
+## Commands
 
-The stack is decided (below) but **no application code exists yet** — no package manifest, no test
-runner, no source directory. Next session starts at Phase 0 in `docs/PLAN.md` §8.
+```bash
+npm run dev         # dev server (http://localhost:3000)
+npm run build       # production build
+npm run lint        # eslint
+npm run typecheck   # next typegen && tsc --noEmit
+npm test            # vitest run (all tests once)
+npm run test:watch  # vitest in watch mode
+npx vitest run lib/auth/access.test.ts   # a single test file
+npx vitest run -t "denies a wrong cookie"  # a single test by name
+```
 
-- **There are still no build, lint, or test commands.** Do not guess at one.
-- **When Phase 0 lands, record the real commands in this file** — install, dev server, full test
-  run, and single-test invocation.
+CI runs lint, typecheck, test, and build on every PR (`.github/workflows/ci.yml`). Run the same
+four locally before committing.
+
+`typecheck` runs `next typegen` first because Next 16 generates route types that `app/layout.tsx`
+depends on, and those are not committed. Plain `tsc --noEmit` fails on a clean checkout.
+
+## Status
+
+Phase 0 complete: Next.js 16 + TypeScript + Vitest + ESLint, CI, and the deployment access gate.
+No interview functionality yet. Next up is Phase 1 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+§15 - push-to-talk plus the STT accuracy spike.
+
+## Access gate
+
+The deployment is gated by [lib/auth/access.ts](lib/auth/access.ts), applied in
+[proxy.ts](proxy.ts). Set `APP_ACCESS_SECRET` in the deployment environment and visit
+`https://<url>/?k=<secret>` once; the secret is stored in an httpOnly cookie and stripped from
+the URL.
+
+**It fails closed.** A production deployment with no `APP_ACCESS_SECRET` denies every request
+rather than serving openly - forgetting the variable takes the app down, which is the safe
+direction when every API route spends real money. Local development is never gated.
+
+Note the file is `proxy.ts`, not `middleware.ts`: Next 16 deprecated the middleware convention.
 
 ## Stack
 
