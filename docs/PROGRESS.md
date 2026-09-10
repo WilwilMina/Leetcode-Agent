@@ -1,14 +1,59 @@
 # Progress
 
 ## Current phase
-PHASE 1 — PUSH-TO-TALK + STT ACCURACY SPIKE (see [ARCHITECTURE.md](ARCHITECTURE.md) §15)
+PHASE 2 — PHASE REDUCER (see [ARCHITECTURE.md](ARCHITECTURE.md) §15), slice 1 of N in progress.
 
-**Code-complete, blocked on API keys.** Every acceptance criterion that can be checked without
-a live network call is verified; the spoken round-trip and the STT spike numbers cannot be
-produced until a Deepgram key and an LLM key (Gemini by default, or Anthropic) exist in
-`.env.local`.
+**Slice 1 (the pure reducer) is code-complete and gated.** `src/lib/interview/reducer.ts` plus
+`phases.ts`/`selectors.ts` implement `PLAN.md` §5 as a pure, synchronous state machine — zero
+React/UI imports, zero `Date.now()`. 56 new tests (103 total). `qa` passed all criteria;
+`code-reviewer` found two minor gaps (a missing skip-matrix test case, two doc updates), both
+fixed. No UI wiring yet — `InterviewSession.tsx` is untouched and still runs on its local
+`useState` triad; that's the next slice.
 
-## Last session (2026-09-10, later)
+**Phase 1's two acceptance criteria are still open**, carried forward from last session.
+`DEEPGRAM_API_KEY` is now real (set since last session), but `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`
+are still empty placeholders in `.env.local`, and no WER numbers are recorded in
+`ARCHITECTURE.md` §15. The STT spike is unblocked on the Deepgram side and needs ~10 recorded
+clips of real spoken explanations — a human task, not something this session can produce.
+
+## This session (2026-09-10, later still)
+
+### Phase 2, slice 1: the pure interview phase reducer
+Built per the approved plan (`docs/PLAN.md` §5, `docs/ARCHITECTURE.md` §9). Two decisions were
+made explicitly with the user during planning, both affecting the two metrics `PLAN.md` §6 calls
+"the product":
+
+- **`realIdea: boolean` added to `SignalsSchema`** (`src/lib/schemas/turn.ts`), a deliberate
+  deviation from `ARCHITECTURE.md` §7's original sketch. Recovery time is "bail-out to next real
+  idea"; inferring it from `bailedOut` alone going false would let a hedge like "hmm, let me
+  think" falsely stop the recovery clock. Now recorded in `ARCHITECTURE.md` §7.
+- **Each refusal counts as its own bail-out; recovery is measured once per stall.** Three "I
+  don't know"s in a row is three bail-outs, one recovery span, timed from the first refusal to
+  the next `realIdea` signal. Implemented as a `Stall` log in `InterviewState`, not a bare
+  counter, so `bailOutCount`/`recoveries` (`src/lib/interview/selectors.ts`) derive from it rather
+  than risking drift. Now recorded in `ARCHITECTURE.md` §9.
+
+New files: `src/lib/schemas/phase.ts` (the canonical `Phase` vocabulary, in `schemas/` since
+`signals.suggestPhase` needs it too), `src/lib/interview/{phases,reducer,selectors}.ts` plus
+`.test.ts` alongside each. `TurnResultSchema` is deliberately **unchanged** — `SignalsSchema` is
+defined but not wired into the live API contract, since no persona emits it until Phase 3; wiring
+it now would fail every live parse.
+
+Soft gates (`PLAN.md` §4) are structural, not a rule the caller has to remember: `PHASE_CONFIRMED`
+and `OVERRIDE_USED` both funnel through one internal classifier that always commits the
+transition and logs an override when it skipped a phase, contradicted the model's suggestion, or
+was explicit — so a UI cannot launder a skip by picking the gentler event.
+
+- `qa`: all 6 acceptance criteria pass, including a full command run (`npm test`/`typecheck`/
+  `lint`/`build`) and independent confirmation of the two planning decisions in the code, not just
+  the tests.
+- `code-reviewer`: clean, no correctness/security/purity issues. Two minor findings, both fixed
+  before commit: (1) the plan asked for "a hand-written skip matrix" but only one skip length was
+  tested — added a single-phase skip and the maximal `intro→debrief` skip as an `it.each` table;
+  (2) `ARCHITECTURE.md` §7/§9 hadn't been updated to record the two planning decisions, despite
+  the plan's own "Carried forward" section calling that out — done.
+
+## Earlier this session (2026-09-10)
 
 ### Amendment to Phase 1: Gemini added as the default LLM provider
 The user has no Anthropic key but wants to use Google Gemini instead — mainly because Gemini's
@@ -71,8 +116,16 @@ still-open "spoken round-trip" criterion.
   tier stops covering actual usage
 
 ## Next session
-- **If keys now exist:** run the two verification steps above first — they're the actual point
-  of this phase — then start Phase 2 (the phase reducer) per `ARCHITECTURE.md` §15
-- **If keys still don't exist:** Phase 2 (pure reducer, docs/ARCHITECTURE.md §9) can proceed
-  key-free in the meantime, same as Phase 1's pure modules were
+- **Phase 2, slice 2: wire the reducer into `InterviewSession.tsx`.** The reducer exists and is
+  fully tested but nothing calls it yet — the page still runs its own local `useState` triad
+  (`phase`/`transcript`/`error`, where `phase` is mic status, not interview phase — do not
+  conflate the two). This slice replaces that with `useReducer(interviewReducer,
+  initialInterviewState)`, dispatches `TRANSCRIPT_RECEIVED`/`TIMER_TICK`/etc. from the existing
+  record→transcribe→turn flow, and needs a UI decision for the override affordance
+  (`OVERRIDE_USED`) that `PLAN.md` §4 requires be visible and logged. No persona work yet —
+  `SIGNALS_RECEIVED` will have nothing real to dispatch until Phase 3, so this slice likely stubs
+  it or defers dispatching it.
+- **If Phase 1's live keys now exist** (see Open / carried forward above): run the two
+  verification steps there — they're still open and are the actual point of that phase — but they
+  do not block Phase 2 from continuing.
 - Gate: `qa` → `code-reviewer` before the slice counts as done

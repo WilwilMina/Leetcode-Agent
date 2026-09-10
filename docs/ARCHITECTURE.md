@@ -193,6 +193,7 @@ export const TurnResult = z.object({
   reply: z.string(),
   signals: z.object({
     bailedOut: z.boolean(),
+    realIdea: z.boolean(),
     suggestPhase: PhaseEnum.nullable(),
     hintLevel: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
     complexityStated: z.boolean(),
@@ -201,6 +202,13 @@ export const TurnResult = z.object({
   }),
 });
 ```
+
+**`realIdea` is a deviation from this section's original sketch, added during Phase 2 planning.**
+Recovery time (`PLAN.md` §6, dimension 2) runs from a bail-out to the candidate's *next real idea*.
+Inferring recovery from `bailedOut` alone going false would let a hedge like "hmm, let me think"
+falsely stop the recovery clock — flattering the one metric this app is named after. `realIdea` is
+measured directly instead. Implemented now in `SignalsSchema` (`src/lib/schemas/turn.ts`), kept
+separate from `TurnResult` until Phase 3 has a persona to emit it — see §9.
 
 Called via `client.messages.parse()` with `zodOutputFormat(TurnResult)` in `output_config.format`.
 
@@ -232,9 +240,11 @@ the app serverless and keeps the security rule satisfied by construction.
 
 ## 9. Interview State Machine
 
-`src/lib/interview/reducer.ts` — pure, synchronous, zero imports from React or any UI module.
-`PLAN.md` §5 notes the original draft conflated two different things; the split is structural
-here.
+**Implemented — Phase 2, slice 1.** `src/lib/interview/reducer.ts` — pure, synchronous, zero
+imports from React or any UI module, and no `Date.now()` anywhere: time advances only via
+`TIMER_TICK`, so the caller owns the clock (same pattern as `checkRateLimit` in
+`lib/auth/rateLimit.ts`). `PLAN.md` §5 notes the original draft conflated two different things;
+the split is structural here.
 
 **The reducer owns state.** Current phase, elapsed time, bail-out count, recovery timers, hint
 level, override log, silence duration.
@@ -250,10 +260,25 @@ Events: TRANSCRIPT_RECEIVED | SIGNALS_RECEIVED | TIMER_TICK | SILENCE_TICK
 Phases: intro → clarify → bruteForce → optimize → complexity → code → handTrace → debrief
 ```
 
+**Stall semantics.** A bail-out opens a *stall* rather than incrementing a bare counter, because
+the two headline metrics (`PLAN.md` §6, dimensions 1 and 2) need different arithmetic over the
+same events. Each refusal counts individually toward the bail-out count — three "I don't know"s in
+one stretch is three bail-outs, since the candidate handed the problem back three times — but
+recovery time is measured once per stall, from the *first* refusal to the `realIdea` signal that
+closes it. Measuring recovery per refusal instead would nest overlapping spans and make later
+refusals in a stall read as artificially fast recoveries. When one signal carries both `bailedOut`
+and `realIdea`, `bailedOut` wins: a candidate cannot recover in the same breath they refuse.
+
+**Soft gates, structurally.** `PLAN.md` §4 requires that a transition is never refused, only
+resisted — so `PHASE_CONFIRMED` and `OVERRIDE_USED` both commit unconditionally and funnel through
+one internal classifier that decides whether the move counts as an override (skipped a phase,
+went somewhere the model did not suggest, or was explicit). Routing both events through the same
+classifier is what stops a UI from laundering a skip by choosing the gentler event.
+
 Derived, not stored: `shouldOfferHint` (≥3 min without progress), `shouldInterrupt` (≥45 s
 unproductive speech), `isRecovering` (bail-out seen, no real idea yet). Keeping these derived
 means they are testable as pure functions of state, and it keeps the timing thresholds in one
-place.
+place — `src/lib/interview/selectors.ts`.
 
 The reducer never calls the network. `/api/turn` is invoked by the page; its result dispatches an
 event. This is what makes every transition unit-testable without mocking an LLM.
