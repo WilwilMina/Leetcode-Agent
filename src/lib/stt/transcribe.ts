@@ -15,7 +15,8 @@ import { DeepgramClient } from "@deepgram/sdk";
 
 let client: DeepgramClient | undefined;
 
-/** Lazy for the same reason as `getAnthropicClient` - importing this module should never throw
+/** Lazy for the same reason as the LLM provider clients (src/lib/llm/providers/) - importing
+ *  this module should never throw
  *  for an unrelated page; only an actual transcription attempt should. */
 function getDeepgramClient(): DeepgramClient {
   if (!client) {

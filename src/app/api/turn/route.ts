@@ -1,8 +1,9 @@
 /**
  * POST /api/turn - one interviewer reply.
  *
- * Node runtime (the Anthropic SDK needs it). Rate-limited per `.claude/rules/security.md`: "a
- * candidate can't run up spend by holding the mic open." Stateless: the client sends the full
+ * Node runtime (both LLM providers' SDKs need it - src/lib/llm/providers/). Rate-limited per
+ * `.claude/rules/security.md`: "a candidate can't run up spend by holding the mic open."
+ * Stateless: the client sends the full
  * conversation history each call (docs/ARCHITECTURE.md §5); nothing is kept server-side between
  * requests.
  */

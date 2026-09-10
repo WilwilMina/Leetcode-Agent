@@ -67,9 +67,11 @@ depends on, and those are not committed. Plain `tsc --noEmit` fails on a clean c
 ## Status
 
 Phase 1 in progress: push-to-talk voice loop, `/api/transcribe` (Deepgram), `/api/turn`
-(Claude), and a `/session` page all exist and pass typecheck/lint/test/build with no live keys.
-**Not yet verified against real keys** - neither `ANTHROPIC_API_KEY` nor `DEEPGRAM_API_KEY` exist
-yet, so the actual spoken round-trip and the STT accuracy spike numbers are still open. See
+(Gemini by default, Claude as a fallback - see `LLM_PROVIDER` in the Stack table below), and a
+`/session` page all exist and pass typecheck/lint/test/build with no live keys.
+**Not yet verified against real keys** - `DEEPGRAM_API_KEY` and `GEMINI_API_KEY` (or
+`ANTHROPIC_API_KEY` if `LLM_PROVIDER=anthropic`) still don't exist in this environment, so the
+actual spoken round-trip and the STT accuracy spike numbers are still open. See
 [docs/PROGRESS.md](docs/PROGRESS.md) for what is and is not done.
 
 ## Access gate
@@ -91,7 +93,7 @@ Note the file is `src/proxy.ts`, not `middleware.ts`: Next 16 deprecated the mid
 |---|---|
 | Framework | Next.js (React + TypeScript), API routes as backend |
 | Tests | Vitest |
-| Interview brain | Claude API (`claude-sonnet-5`), server-side only |
+| Interview brain | `LLM_PROVIDER` env var: Gemini (`gemini-2.5-flash`, default, free tier) or Claude (`claude-sonnet-5`, fallback), server-side only |
 | Voice in | Push-to-talk, batch transcription |
 | Voice out | None in v1 (browser TTS is a later toggle) |
 | Storage | IndexedDB, mirrored to a local CSV via the File System Access API |
@@ -112,9 +114,11 @@ for slices that look trivial. A slice is not done until `docs/PROGRESS.md` is up
 because it becomes load-bearing the moment anyone reintroduces code execution, which is itself a
 decision listed above as settled.
 
-The rules that do bite: the Claude API key is server-side only, and both problem descriptions and
-model output are untrusted input. The pre-solve notes are model-generated and drive scoring, so
-validate their shape before use.
+The rules that do bite: every LLM provider's API key is server-side only, and both problem
+descriptions and model output are untrusted input - true regardless of which provider answered,
+since neither Claude's `parsed_output` nor Gemini's raw JSON text is trusted without a Zod parse
+first (see `src/lib/llm/providers/`). The pre-solve notes are model-generated and drive scoring,
+so validate their shape before use.
 
 ## Testing conventions
 

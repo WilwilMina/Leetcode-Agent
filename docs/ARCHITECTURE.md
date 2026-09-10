@@ -106,28 +106,52 @@ ships with the app. See §13 for why this is the riskiest unverified assumption 
 
 ## 5. LLM Integration
 
-**Model: `claude-sonnet-5` for every call**, with `output_config.effort` as the cost lever:
-`low` for per-turn replies, `high` for pre-solve and scoring.
+**Provider is selected by `LLM_PROVIDER` (`gemini` | `anthropic`), default `gemini`**, resolved
+by the pure `resolveProvider()` in `src/lib/llm/provider.ts` and delegated to from
+`src/lib/llm/turn.ts` — the route handler never knows which provider answered. Gemini
+(`gemini-2.5-flash`) is the default because it has a genuine free tier, unlike Claude; Sonnet 5
+is kept as a fallback behind the same interface, so switching back — e.g. if Gemini's structured
+output proves less reliable in real sessions — is a config change, not a rewrite. Each
+provider's implementation lives in its own file under `src/lib/llm/providers/`, sharing one
+persona (`src/lib/llm/persona.ts`) and one result schema (`src/lib/schemas/turn.ts`) so Phase 3's
+persona work is written once, not once per provider.
 
-### The capability this choice costs
+### Structured output differs by provider, and the docs disagreed with the installed package
+
+Anthropic's `client.messages.parse()` parses and validates in one call; Gemini's
+`generateContent()` does neither — it returns a JSON string in `.text` that the Gemini provider
+`JSON.parse()`s and then validates with the same Zod schema by hand. Both failure modes (bad
+JSON, JSON that doesn't match the schema) degrade to the same generic in-character reply as
+Claude's `parsed_output` being null, per the untrusted-output rule in
+`.claude/rules/security.md`.
+
+Worth recording because it very nearly produced wrong code: Google's own documentation was
+**inconsistent across three separate fetches** on the exact structured-output config field name
+(`responseFormat.text.{mimeType,schema}` on one page, `response_format.{type,mime_type,schema}`
+on another, the classic `responseMimeType`/`responseSchema` pair on a third). The installed
+`@google/genai` package's own `.d.ts` files resolved it — and revealed the docs weren't just
+inconsistently *worded*, the API had actually changed: `responseSchema` is superseded by
+`responseJsonSchema` for JSON Schema input, per the SDK's own source comment. The Gemini provider
+uses `responseJsonSchema: z.toJSONSchema(TurnResultSchema)` — Zod v4's native JSON Schema export,
+no extra dependency — which is why pinning against real installed types, not docs or training
+data, is the standing practice for fast-moving external APIs in this project (the same approach
+resolved Deepgram's SDK shape in Phase 1).
+
+### The capability Sonnet 5 costs, when it's the active provider
 
 Sonnet 5 **does not support mid-conversation `role: "system"` messages** — the operator channel
 that would be the natural home for "you are now in the Optimize phase, nine minutes remain."
-Volatile state therefore rides in a **user-turn text block** instead.
-
-Two honest consequences:
-
-- **It is spoofable in principle.** Irrelevant here — one user, one device, nobody else writes to
-  the transcript — but this pattern should not be copied into a multi-user product.
-- **The Opus 5 upgrade path stays cheap.** All volatile-state injection goes through a single
-  helper (`src/lib/llm/injectState.ts`). Switching to Opus 5 later changes that one function, not the
-  call sites.
+Volatile state therefore rides in a **user-turn text block** instead. This is spoofable in
+principle — irrelevant here (one user, one device) but not a pattern to copy into a multi-user
+product. Gemini has its own, differently-shaped mechanism (`config.systemInstruction`, a
+per-request field rather than a mid-conversation message role) — the same volatile-state design
+question will need revisiting per-provider once Phase 4's clock/phase/hint injection lands.
 
 ### No streaming
 
-Interviewer replies are two sentences. `max_tokens` is small, so HTTP timeouts — the usual reason
-to stream — do not apply. Every turn is one **non-streaming** `client.messages.parse()` call
-returning reply text *and* structured signals together.
+Interviewer replies are two sentences. `max_tokens`/`maxOutputTokens` is small, so HTTP
+timeouts — the usual reason to stream — do not apply. Every turn is one **non-streaming** call
+returning reply text *and* structured signals together, regardless of provider.
 
 This is strictly better here. Real token streaming is bursty and arrives faster than reading
 pace; a client-side reveal gives the deliberate, even cadence `PLAN.md` §4 asks for. One call,
@@ -326,8 +350,23 @@ handler. Not a later hardening pass.
 
 ## 14. Cost
 
-Rough per-session arithmetic at Sonnet 5 ($2/MTok in, $10/MTok out; cache reads ~0.1×) and
-Deepgram ($0.0043/min), for ~20 turns:
+Two estimates, since the active provider is a config choice (§5). Both are rough, per-session
+arithmetic for ~20 turns, alongside Deepgram ($0.0043/min):
+
+**Gemini (`gemini-2.5-flash`, the default)** — $0.30/MTok in, $2.50/MTok out, **and a free tier**
+that this app's actual daily volume (~20 short turns) is very likely to fit inside entirely.
+Exact free-tier request/token limits weren't confirmed against current numbers — check Google AI
+Studio rather than trust a figure here. Paid-tier arithmetic, as an upper bound if the free tier
+is ever exceeded:
+
+| Item | Estimate |
+|---|---|
+| 20 turns — history + output (no prompt caching wired up yet, §6) | ~$0.03 |
+| Deepgram (~13 min of speech) | ~$0.06 |
+| **Per session (paid tier)** | **~$0.09** |
+| **Likely actual cost at this app's volume** | **$0** |
+
+**Claude (`claude-sonnet-5`, the fallback)** — $2/MTok in, $10/MTok out; cache reads ~0.1×:
 
 | Item | Estimate |
 |---|---|
@@ -339,16 +378,18 @@ Deepgram ($0.0043/min), for ~20 turns:
 | **Per session** | **~$0.18** |
 | **Monthly, one session/day** | **~$5–6** |
 
-Three levers, in order of leverage:
+Three levers, in order of leverage, for whichever provider is active:
 
-1. **Prompt caching (§6).** The single biggest factor. A broken cache prefix multiplies the LLM
-   cost several times over and does it invisibly — hence the `cache_read_input_tokens` assertion.
-2. **`effort: "low"` on turns.** Adaptive thinking bills as output tokens. A terse two-sentence
-   interviewer has no use for deep reasoning per turn; pre-solve and scoring do.
-3. **Terseness is free money.** The persona's two-sentence limit is a product requirement that
-   happens to be the cheapest possible output profile.
+1. **Prompt caching (§6).** Only wired up for Claude so far. The single biggest factor there — a
+   broken cache prefix multiplies the LLM cost several times over and does it invisibly, hence
+   the `cache_read_input_tokens` assertion. Gemini has its own caching mechanism, not yet used;
+   revisit if the free tier stops covering actual usage.
+2. **`effort: "low"` on Claude turns.** Adaptive thinking bills as output tokens. A terse
+   two-sentence interviewer has no use for deep reasoning per turn; pre-solve and scoring do.
+3. **Terseness is free money on both providers.** The persona's two-sentence limit is a product
+   requirement that happens to be the cheapest possible output profile either way.
 
-Treat these as estimates to re-measure in Phase 1, not as a budget.
+Treat these as estimates to re-measure once real keys exist, not as a budget.
 
 ## 15. Build Order
 

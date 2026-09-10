@@ -1,5 +1,5 @@
 # Security
-- All API keys (Claude, Deepgram) are server-side only, never exposed to the client
+- All API keys (Gemini, Claude, Deepgram) are server-side only, never exposed to the client
 - Rate-limit the interview-turn endpoint - a candidate can't run up spend by holding the mic open
 - Treat problem descriptions and all model output as untrusted input
 - Validate model-generated structured output against a schema before using it

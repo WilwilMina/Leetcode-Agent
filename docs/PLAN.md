@@ -64,8 +64,9 @@ better under pressure or clearer in their spoken reasoning, it does not belong i
   Web Speech's ~60s session cap and silence auto-stop, the thing that would otherwise cut you off
   mid-explanation. The couple-second delay after release is realistic; interviewers pause.
 - **Voice out:** none in v1. The agent types.
-- **Interview brain:** Claude API, called server-side from a Next.js API route so the key never
-  reaches the browser.
+- **Interview brain:** Gemini by default (a genuine free tier, unlike Claude), Claude as a
+  fallback behind the same interface (`LLM_PROVIDER` env var) — see `docs/ARCHITECTURE.md` §5.
+  Called server-side from a Next.js API route so no provider's key ever reaches the browser.
 - **Editor:** a bare text surface. Monospace, line numbers, bracket matching at most.
   **No autocomplete, no linting, no error squiggles** — those make you look competent in VS Code
   and helpless in an interview. Nothing executes.
