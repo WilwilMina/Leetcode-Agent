@@ -10,19 +10,19 @@ PHASE 1 — PUSH-TO-TALK + STT ACCURACY SPIKE (see [ARCHITECTURE.md](ARCHITECTUR
   - Next.js 16.3.4 + React 19 + TypeScript, App Router, Tailwind v4, ESLint
   - Vitest (`vitest.config.mts`, Node environment — nothing to render yet)
   - CI at `.github/workflows/ci.yml`: lint, typecheck, test, build on every PR and push to main
-  - **Deployment access gate** — `lib/auth/access.ts` (pure decision function, 15 tests) applied
-    by `proxy.ts`. Fails closed: production with no `APP_ACCESS_SECRET` denies everything
+  - **Deployment access gate** — `src/lib/auth/access.ts` (pure decision function, 15 tests) applied
+    by `src/proxy.ts`. Fails closed: production with no `APP_ACCESS_SECRET` denies everything
   - `.env.example`; real commands recorded in `CLAUDE.md`
   - Placeholder page replacing create-next-app's Vercel marketing template
 - Acceptance criteria: all three verified by `qa` with command output as evidence
 - `code-reviewer`: no correctness or security defects; four minor findings, three fixed
-  (PROGRESS.md staleness, missing file-header on `app/layout.tsx`, missing fall-through test)
+  (PROGRESS.md staleness, missing file-header on `src/app/layout.tsx`, missing fall-through test)
 - Decisions made during the slice:
   - `@types/node` bumped ^20 → ^24 to match Node 24 and satisfy Vitest 5, rather than papering
     over the peer conflict with `--legacy-peer-deps`
   - `typecheck` is `next typegen && tsc --noEmit` — Next 16 generates route types that
-    `app/layout.tsx` needs and they are not committed, so bare `tsc` fails on a clean checkout
-  - `proxy.ts`, not `middleware.ts` — Next 16 deprecated the middleware file convention
+    `src/app/layout.tsx` needs and they are not committed, so bare `tsc` fails on a clean checkout
+  - `src/proxy.ts`, not `middleware.ts` — Next 16 deprecated the middleware file convention
   - Gate uses a cookie, not a header: a header secret would have to ship in client JS to let the
     browser call its own API, which defeats the point
 

@@ -53,14 +53,14 @@ npm run lint        # eslint
 npm run typecheck   # next typegen && tsc --noEmit
 npm test            # vitest run (all tests once)
 npm run test:watch  # vitest in watch mode
-npx vitest run lib/auth/access.test.ts   # a single test file
+npx vitest run src/lib/auth/access.test.ts   # a single test file
 npx vitest run -t "denies a wrong cookie"  # a single test by name
 ```
 
 CI runs lint, typecheck, test, and build on every PR (`.github/workflows/ci.yml`). Run the same
 four locally before committing.
 
-`typecheck` runs `next typegen` first because Next 16 generates route types that `app/layout.tsx`
+`typecheck` runs `next typegen` first because Next 16 generates route types that `src/app/layout.tsx`
 depends on, and those are not committed. Plain `tsc --noEmit` fails on a clean checkout.
 
 ## Status
@@ -71,8 +71,8 @@ No interview functionality yet. Next up is Phase 1 in [docs/ARCHITECTURE.md](doc
 
 ## Access gate
 
-The deployment is gated by [lib/auth/access.ts](lib/auth/access.ts), applied in
-[proxy.ts](proxy.ts). Set `APP_ACCESS_SECRET` in the deployment environment and visit
+The deployment is gated by [src/lib/auth/access.ts](src/lib/auth/access.ts), applied in
+[src/proxy.ts](src/proxy.ts). Set `APP_ACCESS_SECRET` in the deployment environment and visit
 `https://<url>/?k=<secret>` once; the secret is stored in an httpOnly cookie and stripped from
 the URL.
 
@@ -80,7 +80,7 @@ the URL.
 rather than serving openly - forgetting the variable takes the app down, which is the safe
 direction when every API route spends real money. Local development is never gated.
 
-Note the file is `proxy.ts`, not `middleware.ts`: Next 16 deprecated the middleware convention.
+Note the file is `src/proxy.ts`, not `middleware.ts`: Next 16 deprecated the middleware convention.
 
 ## Stack
 

@@ -120,7 +120,7 @@ Two honest consequences:
 - **It is spoofable in principle.** Irrelevant here — one user, one device, nobody else writes to
   the transcript — but this pattern should not be copied into a multi-user product.
 - **The Opus 5 upgrade path stays cheap.** All volatile-state injection goes through a single
-  helper (`lib/llm/injectState.ts`). Switching to Opus 5 later changes that one function, not the
+  helper (`src/lib/llm/injectState.ts`). Switching to Opus 5 later changes that one function, not the
   call sites.
 
 ### No streaming
@@ -159,12 +159,12 @@ across repeated turns means a silent invalidator crept into the prefix.
 
 ## 7. Validation
 
-One Zod schema per structured call, in `lib/schemas/`. Each schema is simultaneously the API
+One Zod schema per structured call, in `src/lib/schemas/`. Each schema is simultaneously the API
 contract, the runtime validator, and the TypeScript type — no separate validation layer, no
 hand-written interfaces that can drift.
 
 ```ts
-// lib/schemas/turn.ts
+// src/lib/schemas/turn.ts
 export const TurnResult = z.object({
   reply: z.string(),
   signals: z.object({
@@ -208,7 +208,7 @@ the app serverless and keeps the security rule satisfied by construction.
 
 ## 9. Interview State Machine
 
-`lib/interview/reducer.ts` — pure, synchronous, zero imports from React or any UI module.
+`src/lib/interview/reducer.ts` — pure, synchronous, zero imports from React or any UI module.
 `PLAN.md` §5 notes the original draft conflated two different things; the split is structural
 here.
 
@@ -389,7 +389,7 @@ before building on it.*
 `PLAN.md` §5 as a pure reducer.
 
 - Unit tests cover every transition and every event type
-- `reducer.ts` imports nothing from React or any UI module
+- `src/lib/interview/reducer.ts` imports nothing from React or any UI module
 
 ### Phase 3 — The interviewer's teeth
 The persona: refuses "I don't know", escalates, interrupts, stays terse, never praises.
