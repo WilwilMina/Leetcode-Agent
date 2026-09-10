@@ -55,6 +55,7 @@ npm test            # vitest run (all tests once)
 npm run test:watch  # vitest in watch mode
 npx vitest run src/lib/auth/access.test.ts   # a single test file
 npx vitest run -t "denies a wrong cookie"  # a single test by name
+npm run stt-spike -- clip.webm reference.txt  # Phase 1 STT accuracy spike, never shipped in the app
 ```
 
 CI runs lint, typecheck, test, and build on every PR (`.github/workflows/ci.yml`). Run the same
@@ -65,9 +66,11 @@ depends on, and those are not committed. Plain `tsc --noEmit` fails on a clean c
 
 ## Status
 
-Phase 0 complete: Next.js 16 + TypeScript + Vitest + ESLint, CI, and the deployment access gate.
-No interview functionality yet. Next up is Phase 1 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-§15 - push-to-talk plus the STT accuracy spike.
+Phase 1 in progress: push-to-talk voice loop, `/api/transcribe` (Deepgram), `/api/turn`
+(Claude), and a `/session` page all exist and pass typecheck/lint/test/build with no live keys.
+**Not yet verified against real keys** - neither `ANTHROPIC_API_KEY` nor `DEEPGRAM_API_KEY` exist
+yet, so the actual spoken round-trip and the STT accuracy spike numbers are still open. See
+[docs/PROGRESS.md](docs/PROGRESS.md) for what is and is not done.
 
 ## Access gate
 
@@ -88,7 +91,7 @@ Note the file is `src/proxy.ts`, not `middleware.ts`: Next 16 deprecated the mid
 |---|---|
 | Framework | Next.js (React + TypeScript), API routes as backend |
 | Tests | Vitest |
-| Interview brain | Claude API, server-side only |
+| Interview brain | Claude API (`claude-sonnet-5`), server-side only |
 | Voice in | Push-to-talk, batch transcription |
 | Voice out | None in v1 (browser TTS is a later toggle) |
 | Storage | IndexedDB, mirrored to a local CSV via the File System Access API |
@@ -137,7 +140,7 @@ the session that wrote the code, so give it the change to review rather than you
 ## Progress tracking
 
 [docs/PROGRESS.md](docs/PROGRESS.md) is the handoff between sessions and carries the current phase
-(now: `PHASE 0 — FOUNDATIONS`). Read it at the start of a session and update it at the end of every slice —
+(now: `PHASE 1 — PUSH-TO-TALK + STT ACCURACY SPIKE`). Read it at the start of a session and update it at the end of every slice —
 shipped, decided, blocked, and where the next session should start.
 
 ## Skills

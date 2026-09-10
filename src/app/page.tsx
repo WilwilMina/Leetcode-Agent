@@ -1,19 +1,27 @@
 /**
  * Holding page.
  *
- * Deliberately bare. The real session UI arrives in Phase 1 and goes through the
- * `frontend-design` skill - see CLAUDE.md. This exists so the deployment has something to serve
- * and so the access gate has a page to gate.
+ * Everything past this point happens at /session. This page just orients and hands off - no
+ * marketing copy, no feature list.
  */
+
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-3 p-8">
-      <h1 className="font-mono text-sm tracking-widest uppercase">Interview Loop</h1>
-      <p className="max-w-md text-center text-sm opacity-60">
-        Mock technical interviews that will not let you quit on a problem.
-      </p>
-      <p className="font-mono text-xs opacity-40">Phase 0 — foundations</p>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+      <div className="flex max-w-md flex-col gap-3 border border-line bg-panel px-6 py-5">
+        <h1 className="text-sm font-medium">Interview Loop</h1>
+        <p className="text-sm leading-relaxed text-muted">
+          Mock technical interviews that will not let you quit on a problem.
+        </p>
+        <Link
+          href="/session"
+          className="mt-2 self-start border border-ink px-3 py-1.5 text-sm hover:bg-ink hover:text-paper"
+        >
+          Start a session
+        </Link>
+      </div>
     </main>
   );
 }

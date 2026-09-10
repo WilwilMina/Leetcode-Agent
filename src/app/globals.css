@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * Design tokens for Interview Loop.
+ *
+ * The page is built as interview equipment, not a chat app: a clinical, high-contrast light
+ * ground (the exam-room reading of "cold," not the cozy dark-mode-dev-tool reading), hairline
+ * borders instead of shadows, zero radius, and exactly one accent color reserved for "you are
+ * being recorded." Every other surface stays achromatic. See docs/ARCHITECTURE.md §3 for how
+ * this scales into later phases (clock, phase rail, editor).
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --paper: #f4f5f6;
+  --panel: #ffffff;
+  --ink: #14171a;
+  --muted: #6b7178;
+  --line: #d7dadd;
+  --signal: #c81e3a;
+  --signal-wash: #fbeaec;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #101316;
+    --panel: #16191d;
+    --ink: #edeeef;
+    --muted: #8b9198;
+    --line: #2a2e33;
+    --signal: #ff5470;
+    --signal-wash: #2a1418;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-signal: var(--signal);
+  --color-signal-wash: var(--signal-wash);
+  --font-mono: var(--font-plex-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Visible keyboard focus everywhere - quality floor, not optional given the primary control is
+   operable by keyboard (see PushToTalk). */
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

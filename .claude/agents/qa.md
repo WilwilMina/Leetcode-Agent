@@ -4,7 +4,7 @@ description: Verify implemented functionality against acceptance criteria and ru
 tools: Read, Grep, Glob, Bash
 model: haiku
 effort: low
-maxTurns: 10
+maxTurns: 25
 ---
 
 You verify whether an implementation actually works against stated acceptance criteria -

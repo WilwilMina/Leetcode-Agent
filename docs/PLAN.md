@@ -238,6 +238,8 @@ lands first try.
 Later, if wanted: browser TTS toggle, coach mode (live feedback, deliberately separate from
 interview mode so neither is diluted), interviewer personas, Supabase sync, weakness-of-the-week.
 
+Also later, if wanted: suggesting solution videos in the debrief. Needs a content-quality and licensing check before it is more than an idea - a bad or pirated link in the debrief is worse than no link.
+
 ## 9. What Changed, and Why
 
 | Original plan | Now | Why |
