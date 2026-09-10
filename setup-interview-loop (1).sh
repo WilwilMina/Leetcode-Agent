@@ -4,7 +4,7 @@
 # and docs/ — no application code.
 set -e
 
-mkdir -p .claude/rules .claude/agents .claude/skills docs
+mkdir -p .claude/rules .claude/agents docs
 
 # ---------- .claude/rules/ ----------
 
@@ -69,13 +69,11 @@ maxTurns: 10
 ---
 EOF
 
-# ---------- grill-me ----------
-# Use the real mattpocock/skills version, not a hand-written lookalike -
-# it's the well-tested, widely used one (990k+ installs), and its
-# interrogation naturally covers domain-specific questions without needing
-# a hardcoded checklist baked into a custom SKILL.md.
-echo "Installing the real grill-me skill..."
-npx --yes skills add https://github.com/mattpocock/skills --skill grill-me
+# ---------- skills ----------
+# Deliberately not installed here. grill-me already ships with the user-level
+# mattpocock-skills plugin, so `npx skills add` only vendors a duplicate into
+# .agents/ plus a lockfile to keep pinned - and leaves a dangling symlink if
+# that directory goes away. See CLAUDE.md "Skills".
 
 # ---------- docs/ ----------
 
