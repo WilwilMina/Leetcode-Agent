@@ -1,14 +1,25 @@
 # Progress
 
 ## Current phase
-PHASE 2 — PHASE REDUCER (see [ARCHITECTURE.md](ARCHITECTURE.md) §15), slice 1 of N in progress.
+PHASE 2 — PHASE REDUCER (see [ARCHITECTURE.md](ARCHITECTURE.md) §15), slice 2 of N just landed.
 
-**Slice 1 (the pure reducer) is code-complete and gated.** `src/lib/interview/reducer.ts` plus
-`phases.ts`/`selectors.ts` implement `PLAN.md` §5 as a pure, synchronous state machine — zero
-React/UI imports, zero `Date.now()`. 56 new tests (103 total). `qa` passed all criteria;
-`code-reviewer` found two minor gaps (a missing skip-matrix test case, two doc updates), both
-fixed. No UI wiring yet — `InterviewSession.tsx` is untouched and still runs on its local
-`useState` triad; that's the next slice.
+**Slice 1 (the pure reducer) and slice 2 (wiring it into the UI) are both code-complete and
+gated.** `src/lib/interview/reducer.ts` plus `phases.ts`/`selectors.ts` implement `PLAN.md` §5 as
+a pure, synchronous state machine. Slice 2 (`src/app/session/InterviewSession.tsx`) now actually
+runs it: a real clock (`useReducer` + a `Date.now()`-delta timer effect, clamped to 5s per tick to
+survive a laptop sleep), a status readout (phase/elapsed/bail-outs/overrides), a "confirm next
+phase" button, and an always-enabled override row — the literal soft-gate affordance from
+`PLAN.md` §4. 111 tests total. `qa` passed all criteria; `code-reviewer` found and fixed two real
+bugs before commit (see below) plus a documented accessibility gap.
+
+**Still not persona work.** `SIGNALS_RECEIVED`, `HINT_OFFERED`, `CODE_CHANGED`, `CODE_PASTED` stay
+unwired — no model emits `Signals` (Phase 3), no hints exist (Phase 4), no editor exists (Phase 5).
+
+**Open item, not closed this session:** the phase-control UI, the timer effect, and the full
+record→transcribe→turn flow have zero automated coverage (no jsdom/RTL, by deliberate repo
+policy — see `vitest.config.mts`), and no headless-browser tool was available in this environment
+to screenshot/click through it. **This needs a human to manually verify in a real browser** before
+it's fully trusted — see Next session.
 
 **Phase 1's two acceptance criteria are still open**, carried forward from last session.
 `DEEPGRAM_API_KEY` is now real (set since last session), but `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`
@@ -16,7 +27,46 @@ are still empty placeholders in `.env.local`, and no WER numbers are recorded in
 `ARCHITECTURE.md` §15. The STT spike is unblocked on the Deepgram side and needs ~10 recorded
 clips of real spoken explanations — a human task, not something this session can produce.
 
-## This session (2026-09-10, later still)
+## This session (2026-09-10, even later)
+
+### Phase 2, slice 2: wire the reducer into `InterviewSession.tsx`
+Built per the approved plan. One decision made with the user during planning: timer deltas are
+clamped to 5s before dispatch, since the reducer trusts whatever delta it's handed and a laptop
+sleep/backgrounded tab would otherwise hand it an hours-long gap on the next tick, corrupting
+elapsed time and every hint/interrupt threshold for the rest of the session.
+
+Resolved the naming collision flagged in slice 1's plan: the component's local mic-status `Phase`
+(`idle`/`recording`/`transcribing`/`thinking`) is renamed `RecorderStatus` throughout, freeing
+`phase`/`Phase` for the interview phase. New pure helper `src/lib/interview/ticks.ts`
+(`tickEvents`) is the one piece of real decision logic the timer effect needed — which events a
+wall-clock delta produces given what the mic is doing — kept out of the component and unit-tested
+in isolation, same pattern as the rest of `src/lib/interview/`.
+
+Invoked the `frontend-design` skill before building the new phase-control UI (status readout,
+confirm button, override row), per this repo's blanket UI rule. Design call: `--signal` (the one
+accent color, reserved site-wide for "you are being recorded" per `globals.css`) is *not* reused
+for the override row — reusing it would dilute its one established meaning. Overrides are instead
+distinguished by size/weight (small, peripheral buttons vs. the large central push-to-talk
+control) and a plain-stated cost ("Skipping is not blocked. It is scored."), not color.
+
+- `qa`: all criteria pass — 111 tests, clean typecheck/lint/build, soft-gate behavior confirmed
+  (override row is disabled only while `busy`, never by phase, matching `PLAN.md` §4). Explicitly
+  flagged what it could not verify: no component test infra exists (deliberate repo policy — see
+  `vitest.config.mts`) and no headless-browser tool was available in this environment, so the
+  rendered UI and the real record→transcribe→turn flow were not exercised end-to-end.
+- `code-reviewer`: found and fixed two real bugs before commit — (1) **High**: `TRANSCRIPT_RECEIVED`'s
+  `durationMs` was measuring recording time *plus* the transcription network round-trip, since the
+  stop timestamp was read after `await`ing the whole `/api/transcribe` chain instead of at
+  `recorder.stop()` time. Fixed by capturing the stop timestamp synchronously before the async
+  chain begins. (2) **Medium**: the tick-delta clamp only capped the high end
+  (`Math.min(..., 5_000)`), not the low end — a backward system-clock adjustment (NTP sync) could
+  produce a negative delta that the reducer would add unconditionally, running the visible session
+  clock backward. Fixed with `Math.max(0, ...)`. Also added a scoped `aria-live="polite"` to just
+  the phase-name status item (not the whole strip, which would otherwise chatter every second as
+  elapsed time ticks) — flagged as an unconsidered accessibility gap, not a hard bug.
+- Tried to get an automated screenshot via the `run` skill; `chromium-cli` isn't installed in this
+  environment and installing a full Playwright/Chromium stack was judged out of scope for this
+  slice. **Manual browser verification is still owed** — see Next session.
 
 ### Phase 2, slice 1: the pure interview phase reducer
 Built per the approved plan (`docs/PLAN.md` §5, `docs/ARCHITECTURE.md` §9). Two decisions were
@@ -116,16 +166,23 @@ still-open "spoken round-trip" criterion.
   tier stops covering actual usage
 
 ## Next session
-- **Phase 2, slice 2: wire the reducer into `InterviewSession.tsx`.** The reducer exists and is
-  fully tested but nothing calls it yet — the page still runs its own local `useState` triad
-  (`phase`/`transcript`/`error`, where `phase` is mic status, not interview phase — do not
-  conflate the two). This slice replaces that with `useReducer(interviewReducer,
-  initialInterviewState)`, dispatches `TRANSCRIPT_RECEIVED`/`TIMER_TICK`/etc. from the existing
-  record→transcribe→turn flow, and needs a UI decision for the override affordance
-  (`OVERRIDE_USED`) that `PLAN.md` §4 requires be visible and logged. No persona work yet —
-  `SIGNALS_RECEIVED` will have nothing real to dispatch until Phase 3, so this slice likely stubs
-  it or defers dispatching it.
+- **Owed from slice 2: manual browser verification.** Nothing automated exercised the actual
+  rendered UI. Open `/session` (dev server: `npm run dev`) and confirm: the status strip appears
+  and elapsed time visibly advances; "Continue to..." advances the phase with the override count
+  staying flat; an override-row button jumps straight to that phase and the override count
+  increments; the push-to-talk button disables once `debrief` is reached. If a headless-browser
+  tool becomes available in a future environment, consider `/run-skill-generator` to capture this
+  as a repeatable project skill instead of re-deriving it each time.
+- **Phase 2, slice 3 (or Phase 3 directly — pick based on where the last session left off).** The
+  reducer and its UI wiring are both done; `SIGNALS_RECEIVED`/`HINT_OFFERED`/`CODE_CHANGED`/
+  `CODE_PASTED` are still unwired because nothing produces them yet. The next real functional gap
+  is Phase 3 — the interviewer's persona — which is what will finally make `SIGNALS_RECEIVED` mean
+  something. `PLAN.md` itself flags Phase 3 as the hardest to unit-test and the one most likely to
+  be rushed; budget real sessions for prompt-tuning, not just code.
+- **Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`) to make real progress.** Wiring more events is
+  possible key-free, but Phase 3 is fundamentally about tuning persona behavior against live model
+  replies — that can't be faked with a stub. Check whether the key has landed in `.env.local`.
 - **If Phase 1's live keys now exist** (see Open / carried forward above): run the two
   verification steps there — they're still open and are the actual point of that phase — but they
-  do not block Phase 2 from continuing.
+  do not block Phase 2/3 from continuing.
 - Gate: `qa` → `code-reviewer` before the slice counts as done
